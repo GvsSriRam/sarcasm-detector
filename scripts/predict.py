@@ -1,17 +1,21 @@
+import os
+import tempfile
+
 import cv2
-import pytesseract
-import re
 import numpy as np
+import pytesseract
 import tensorflow as tf
 from transformers import AutoTokenizer, AutoModel
 
+
+# Predictor class that holds the prediction functionality to support the trained tensorflow classification model
 class Predictor:
 
     def __init__(self):
         # Load pre-trained image model (e.g., VGG-16)
         self.image_model = tf.keras.applications.VGG16(
             # weights='imagenet',
-            weights="/Users/gvssriram/Desktop/projects-internship/sarcasm-detector/Notebooks/vgg16_weights_tf_dim_ordering_tf_kernels_notop.h5",
+            weights="Notebooks/vgg16_weights_tf_dim_ordering_tf_kernels_notop.h5",
             include_top=False, pooling='avg'
         )
 
@@ -20,9 +24,11 @@ class Predictor:
         self.text_tokenizer = AutoTokenizer.from_pretrained(text_model_name)
         self.text_model = AutoModel.from_pretrained(text_model_name)
 
-        model_location = "/Users/gvssriram/Desktop/projects-internship/sarcasm-detector/Notebooks/model.keras"
+        # Load pre-trained classification model
+        model_location = "Notebooks/model.keras"
         self.model = tf.keras.models.load_model(model_location)
 
+        # Load classes in the trained dataset
         self.classes = np.load("Data/preprocessed/classes.npy")
 
     def preprocess_image_for_ocr(self, image_path):
@@ -68,18 +74,21 @@ class Predictor:
         return outputs.pooler_output.detach().numpy()
 
     def predict(self, uploaded_file):
-        import tempfile
-        import os
+        # Step-1: Create a temp file for this uploaded file
         file_extension = os.path.splitext(uploaded_file.name)[-1]
         with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as temp_file:
             temp_file.write(uploaded_file.read())
             temp_file_path = temp_file.name
 
-        text = self.detect_ocr(temp_file_path)
-        image_embedding = self.get_image_embedding(temp_file_path)
-        text_embedding = self.get_text_embedding(text)
-        combined_embedding = np.concatenate([image_embedding, text_embedding], axis=1)
+        # Feature extraction
+        text = self.detect_ocr(temp_file_path) # OCR Detection
+        image_embedding = self.get_image_embedding(temp_file_path) # Image Embeddings
+        text_embedding = self.get_text_embedding(text) # Text embeddings
+        combined_embedding = np.concatenate([image_embedding, text_embedding], axis=1) # Full feature vector
 
+        # Raw prediction probabilities
         prediction = self.model.predict(combined_embedding, verbose=0)
-        print(prediction)
+        # print(prediction)
+
+        # Return appropriate class label
         return self.classes[np.argmax(prediction)]

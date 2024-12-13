@@ -1,8 +1,11 @@
 import streamlit as st
 
 from scripts.predict import Predictor
+
+# Predictor object
 predictor = Predictor()
 
+# Predictor function to be exposed
 def predict_meme_class(image_file):
     return predictor.predict(image_file)
 
